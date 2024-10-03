@@ -1,54 +1,48 @@
 #include <WiFi.h>
-//#include "DHT.h"
+//#include <DHT.h>
 
-#define DHTPIN 4
-#define DHTTYPE DHT22
+//#define DHTPIN 4     // Digital pin connected to the DHT sensor
+//#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 
-const char* ssid = "Heltec_AP";
-const char* password = "12345678"; // Same as the one set in AP
-
-const char* host = "192.168.4.1";  // Default IP of the Heltec AP
+const char* ssid = "LowLevelGatewayAP";
+const char* password = "password123";
+const char* serverIP = "192.168.4.1";  // IP of the Low Level Gateway
+const int serverPort = 8080;
 
 //DHT dht(DHTPIN, DHTTYPE);
+WiFiClient client;
 
 void setup() {
   Serial.begin(115200);
   //dht.begin();
-
-  // Connect to the Heltec Access Point
+  
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
   }
-  Serial.println("Connected to AP");
+  Serial.println("Connected to WiFi");
 }
 
 void loop() {
-  WiFiClient client;
-  
-  if (!client.connect(host, 80)) {
-    Serial.println("Connection to Heltec AP failed");
-    delay(5000);  // Retry after 5 seconds
-    return;
-  }
+  // TODO: implement sensor reads, remove mockups 
+  float h = 65.7;//dht.readHumidity();      
+  float t = 23.2;//dht.readTemperature();
 
-  // Read DHT22 sensor data
-  //float humidity = dht.readHumidity();
-  //float temperature = dht.readTemperature();
-  float humidity = 0.1;
-  float temperature = 0.2;
-
-  if (isnan(humidity) || isnan(temperature)) {
+  if (isnan(h) || isnan(t)) {
     Serial.println("Failed to read from DHT sensor!");
     return;
   }
 
-  // Send data to Heltec AP
-  String data = String(temperature) + "," + String(humidity);
-  client.println(data);
-  Serial.println("Data sent: " + data);
+  if (client.connect(serverIP, serverPort)) {
+    // TODO: improve interface for sending data
+    String data = "temp:" + String(t) + ",hum:" + String(h);
+    client.println(data);
+    client.stop();
+    Serial.println("Data sent: " + data);
+  } else {
+    Serial.println("Couldn't connect to server");
+  }
 
-  client.stop();  // Close the connection
-  delay(2000);    // Wait before sending the next data
+  delay(30000);  // Wait for 30 seconds before next reading
 }
