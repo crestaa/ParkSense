@@ -1,7 +1,4 @@
-#define WIFI_SSID "Gateway8437"
-#define WIFI_PASS "password123"
-#define SERVER_IP "192.168.4.1"
-#define SERVER_PORT 8080
+#define ESPNOW_GATEWAY {0xF6, 0x12, 0xFA, 0x6A, 0x49, 0x90}
 
 #define TIME_TO_SLEEP  20          // Time device will go to sleep (in seconds)
 
