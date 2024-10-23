@@ -113,19 +113,70 @@ void setup() {
 }
 
 float readDistance() {
-    digitalWrite(TRIGGER_PIN, LOW);
-    delayMicroseconds(2);
-    digitalWrite(TRIGGER_PIN, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(TRIGGER_PIN, LOW);
+    const int NUM_READINGS = 4;
+    const float MAX_DEVIATION_PERCENT = 15.0;  // 15% maximum deviation from mean
     
-    long duration = pulseIn(ECHO_PIN, HIGH);
-    float distance = duration * 0.034 / 2;
+    float readings[NUM_READINGS];
+    float sum = 0;
+    int validReadings = 0;
     
-    if (distance > 400 || distance <= 2) {
+    // Take 4 readings
+    for (int i = 0; i < NUM_READINGS; i++) {
+        // HC-SR04 trigger sequence
+        digitalWrite(TRIGGER_PIN, LOW);
+        delayMicroseconds(2);
+        digitalWrite(TRIGGER_PIN, HIGH);
+        delayMicroseconds(10);
+        digitalWrite(TRIGGER_PIN, LOW);
+        
+        long duration = pulseIn(ECHO_PIN, HIGH);
+        float distance = duration * 0.034 / 2;
+        
+        // Basic range check (2cm to 400cm is the sensor's range)
+        if (distance > 400 || distance <= 2) {
+            readings[i] = -1;
+            continue;
+        }
+        
+        readings[i] = distance;
+        sum += distance;
+        validReadings++;
+        
+        delay(50);  // Short delay between readings
+    }
+    
+    // If we don't have at least 2 valid readings, return error
+    if (validReadings < 2) {
         return -1;
     }
-    return distance;
+    
+    // Calculate initial mean
+    float mean = sum / validReadings;
+    
+    // Remove outliers and recalculate
+    sum = 0;
+    int finalValidReadings = 0;
+    
+    for (int i = 0; i < NUM_READINGS; i++) {
+        if (readings[i] == -1) continue;
+        
+        // Calculate deviation percentage from mean
+        float deviation = abs(readings[i] - mean) / mean * 100;
+        
+        // If reading is within acceptable deviation, include it
+        if (deviation <= MAX_DEVIATION_PERCENT) {
+            sum += readings[i];
+            finalValidReadings++;
+        }
+    }
+    
+    // If we don't have at least 2 readings after filtering, return error
+    if (finalValidReadings < 2) {
+        return -1;
+    }
+    
+    // Return final filtered average
+    return sum / finalValidReadings;
 }
 
 void performTask() {
