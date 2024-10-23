@@ -5,14 +5,16 @@
 #include <esp_system.h>
 #include <esp_wifi.h>
 #include <ArduinoJson.h>
+#include <Preferences.h>  // Add Preferences library
 
 DHT dht(DHTPIN, DHTTYPE);
+Preferences preferences;  // Create Preferences object
 
 // Replace with the Primary MAC shown on your gateway's OLED and Serial output
 uint8_t gatewayAddress[] = ESPNOW_GATEWAY;  // Your gateway MAC
 
 #define uS_TO_S_FACTOR 1000000ULL  // Conversion factor for micro seconds to seconds
-RTC_DATA_ATTR int bootCount = 0;
+int bootCount = 0;  // Remove RTC_DATA_ATTR as we'll use Preferences instead
 
 // ESP-NOW peer information
 esp_now_peer_info_t peerInfo;
@@ -68,7 +70,13 @@ void setup() {
     Serial.begin(115200);
     dht.begin();
     
-    ++bootCount;
+    // Initialize Preferences
+    preferences.begin("sensor", false);  // Open preferences with namespace "sensor"
+    
+    // Get stored boot count, default to 0 if not found
+    bootCount = preferences.getInt("bootCount", 0);
+    bootCount++;  // Increment boot count
+    preferences.putInt("bootCount", bootCount);  // Save new boot count
     Serial.println("Boot number: " + String(bootCount));
     
     // HC-SR04 setup
@@ -147,7 +155,6 @@ void performTask() {
     // Add metadata
     if (hasValidData) {
         doc["m"] = deviceMacStr;
-        doc["n"] = random(1000, 100001);
         doc["b"] = bootCount;
         
         // Serialize JSON to string
@@ -164,10 +171,12 @@ void performTask() {
         } else {
             Serial.println("Error sending the data");
             // If sending fails, go to sleep immediately
+            preferences.end();  // Close preferences before sleep
             esp_deep_sleep_start();
         }
     } else {
         Serial.println("No valid data to send");
+        preferences.end();  // Close preferences before sleep
         esp_deep_sleep_start();
     }
 }
