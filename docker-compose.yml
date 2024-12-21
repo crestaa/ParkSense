@@ -1,0 +1,74 @@
+version: '3.8'
+
+x-common-variables: &common-variables
+  MQTT_USERNAME: mqtt_user
+  MQTT_PASSWORD: your_secure_password
+
+services:
+  mqtt-broker:
+    image: eclipse-mosquitto:latest
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+      - ./mosquitto/init.sh:/init.sh
+    environment:
+      <<: *common-variables
+    command: ["/init.sh"]
+    networks:
+      - iot-network
+
+  database:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: iot_data
+      POSTGRES_USER: iot_user
+      POSTGRES_PASSWORD: your_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - iot-network
+
+  data_listener:
+    build:
+      context: ./data_listener
+      dockerfile: Dockerfile
+    depends_on:
+      - mqtt-broker
+      - database
+    environment:
+      <<: *common-variables
+      MQTT_BROKER: mqtt-broker:1883
+      POSTGRES_HOST: database
+      POSTGRES_DB: iot_data
+      POSTGRES_USER: iot_user
+      POSTGRES_PASSWORD: your_secure_password
+    networks:
+      - iot-network
+
+  web_server:
+    build:
+      context: ./web_server
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - database
+    environment:
+      POSTGRES_HOST: database
+      POSTGRES_DB: iot_data
+      POSTGRES_USER: iot_user
+      POSTGRES_PASSWORD: your_secure_password
+    networks:
+      - iot-network
+
+networks:
+  iot-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
