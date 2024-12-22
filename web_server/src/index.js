@@ -1,5 +1,6 @@
-import express from 'express';
-import { Client } from 'pg';
+const express = require('express');
+const { Client } = require('pg');
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -17,6 +18,9 @@ const dbClient = new Client(dbConfig);
 
 app.use(express.json());
 
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Enable CORS for development
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -24,7 +28,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Get latest sensor readings
+// API routes
 app.get('/api/latest', async (req, res) => {
   try {
     const result = await dbClient.query(
@@ -37,7 +41,6 @@ app.get('/api/latest', async (req, res) => {
   }
 });
 
-// Get historical data
 app.get('/api/history', async (req, res) => {
   try {
     const { hours = 24 } = req.query;
@@ -52,11 +55,28 @@ app.get('/api/history', async (req, res) => {
   }
 });
 
+// Function to try connecting to the database
+async function connectWithRetry(maxAttempts = 5, delay = 5000) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await dbClient.connect();
+      console.log('Connected to database');
+      return true;
+    } catch (err) {
+      console.log(`Connection attempt ${attempt}/${maxAttempts} failed:`, err.message);
+      if (attempt === maxAttempts) {
+        throw err;
+      }
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 // Start server
 async function startServer() {
   try {
-    await dbClient.connect();
-    console.log('Connected to database');
+    // Try to connect to the database with retries
+    await connectWithRetry();
     
     app.listen(port, () => {
       console.log(`Web server listening on port ${port}`);

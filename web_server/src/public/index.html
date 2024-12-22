@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IoT Dashboard</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #f3f4f6;
+        font-family: Arial, sans-serif;
+      }
+
+      .container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        width: 90%;
+        max-width: 400px;
+      }
+
+      .button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 20px;
+        border: none;
+        border-radius: 8px;
+        font-size: 18px;
+        font-weight: bold;
+        color: white;
+        cursor: pointer;
+        transition: transform 0.1s, background-color 0.3s;
+      }
+
+      .button:hover {
+        transform: translateY(-2px);
+      }
+
+      .button i {
+        font-size: 24px;
+      }
+
+      .add-sensor {
+        background-color: #3b82f6;
+      }
+
+      .add-sensor:hover {
+        background-color: #2563eb;
+      }
+
+      .show-measurements {
+        background-color: #10b981;
+      }
+
+      .show-measurements:hover {
+        background-color: #059669;
+      }
+
+      .parking-slots {
+        background-color: #8b5cf6;
+      }
+
+      .parking-slots:hover {
+        background-color: #7c3aed;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <button class="button add-sensor">
+        <i class="fas fa-plus"></i>
+        ADD SENSOR
+      </button>
+
+      <button class="button show-measurements">
+        <i class="fas fa-chart-line"></i>
+        SHOW MEASUREMENTS
+      </button>
+
+      <button class="button parking-slots">
+        <i class="fas fa-car"></i>
+        PARKING SLOTS
+      </button>
+    </div>
+
+    <script>
+      // Add click event listeners to buttons
+      document.querySelectorAll(".button").forEach((button) => {
+        button.addEventListener("click", function () {
+          const action = this.textContent.trim();
+          console.log(`Clicked: ${action}`);
+          // You can add specific actions for each button here
+        });
+      });
+    </script>
+  </body>
+</html>

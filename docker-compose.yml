@@ -30,14 +30,19 @@ services:
       - ./database/init:/docker-entrypoint-initdb.d
     networks:
       - iot-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iot_user -d iot_data"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   data_listener:
     build:
       context: ./data_listener
       dockerfile: Dockerfile
     depends_on:
-      - mqtt-broker
-      - database
+      database:
+        condition: service_healthy
     environment:
       - MQTT_BROKER=mqtt-broker:1883
       - MQTT_USERNAME=mqtt_user
@@ -56,7 +61,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - database
+      database:
+        condition: service_healthy
     environment:
       - POSTGRES_HOST=database
       - POSTGRES_DB=iot_data
