@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sensor Measurements</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <style>
+      :root {
+        --primary-color: #3b82f6;
+        --hover-color: #2563eb;
+        --background-color: #f3f4f6;
+        --card-background: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background-color: var(--background-color);
+        font-family: Arial, sans-serif;
+        color: var(--text-color);
+      }
+
+      .container {
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+      }
+
+      .back-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        text-decoration: none;
+        transition: background-color 0.3s;
+      }
+
+      .back-button:hover {
+        background-color: var(--hover-color);
+      }
+
+      .download-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background-color: #10b981;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+      }
+
+      .download-button:hover {
+        background-color: #059669;
+      }
+
+      .measurements-card {
+        background-color: var(--card-background);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .table-container {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 600px;
+      }
+
+      th,
+      td {
+        padding: 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #4b5563;
+      }
+
+      tr:hover {
+        background-color: #f8fafc;
+      }
+
+      td {
+        color: #4b5563;
+      }
+
+      .sensor-id {
+        font-family: monospace;
+        color: #6366f1;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        font-size: 18px;
+        color: #6b7280;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #6b7280;
+      }
+
+      @media (max-width: 640px) {
+        .header {
+          flex-direction: column;
+          gap: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <a href="/" class="back-button">
+          <i class="fas fa-arrow-left"></i>
+          Back to Home
+        </a>
+        <button class="download-button" onclick="downloadCSV()">
+          <i class="fas fa-download"></i>
+          Download CSV
+        </button>
+      </div>
+
+      <div class="measurements-card">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Sensor ID</th>
+                <th>Temperature (°C)</th>
+                <th>Humidity (%)</th>
+                <th>Distance (cm)</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="measurements-table">
+              <tr>
+                <td colspan="5" class="loading">
+                  <i class="fas fa-spinner fa-spin"></i>
+                  Loading measurements...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let measurementsData = [];
+
+      async function fetchMeasurements() {
+        try {
+          const response = await fetch("/api/measurements");
+          const data = await response.json();
+          measurementsData = data;
+          displayMeasurements(data);
+        } catch (error) {
+          console.error("Error fetching measurements:", error);
+          document.getElementById("measurements-table").innerHTML = `
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            <i class="fas fa-exclamation-circle"></i>
+                            Error loading measurements. Please try again later.
+                        </td>
+                    </tr>
+                `;
+        }
+      }
+
+      function displayMeasurements(measurements) {
+        const tbody = document.getElementById("measurements-table");
+
+        if (!measurements.length) {
+          tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            No measurements found
+                        </td>
+                    </tr>
+                `;
+          return;
+        }
+
+        tbody.innerHTML = measurements
+          .map(
+            (m) => `
+                <tr>
+                    <td class="sensor-id">${m.sensor_id}</td>
+                    <td>${m.temperature.toFixed(1)}</td>
+                    <td>${m.humidity.toFixed(1)}</td>
+                    <td>${m.distance.toFixed(1)}</td>
+                    <td>${new Date(m.timestamp).toLocaleString()}</td>
+                </tr>
+            `
+          )
+          .join("");
+      }
+
+      function downloadCSV() {
+        if (!measurementsData.length) return;
+
+        const headers = [
+          "Sensor ID",
+          "Temperature (°C)",
+          "Humidity (%)",
+          "Distance (cm)",
+          "Timestamp",
+        ];
+        const csvContent = [
+          headers.join(","),
+          ...measurementsData.map((m) =>
+            [
+              m.sensor_id,
+              m.temperature,
+              m.humidity,
+              m.distance,
+              new Date(m.timestamp).toISOString(),
+            ].join(",")
+          ),
+        ].join("\n");
+
+        const blob = new Blob([csvContent], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", "sensor_measurements.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      // Load measurements when page loads
+      fetchMeasurements();
+
+      // Refresh data every 30 seconds
+      setInterval(fetchMeasurements, 30000);
+    </script>
+  </body>
+</html>

@@ -25,14 +25,107 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE');
   next();
 });
 
-// API routes
+// Get all sensors
+app.get('/api/sensors', async (req, res) => {
+  try {
+    const result = await dbClient.query(
+      'SELECT id AS sensor_id, latitude, longitude FROM sensors ORDER BY id'
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add new sensor
+app.post('/api/sensors', async (req, res) => {
+  const { sensor_id, latitude, longitude } = req.body;
+
+  // Validate input
+  if (!sensor_id || latitude === undefined || longitude === undefined) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  try {
+    // Check if sensor_id already exists
+    const existing = await dbClient.query(
+      'SELECT id FROM sensors WHERE id = $1',
+      [sensor_id]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ message: 'Sensor ID already exists' });
+    }
+
+    // Insert new sensor
+    await dbClient.query(
+      'INSERT INTO sensors (id, latitude, longitude) VALUES ($1, $2, $3)',
+      [sensor_id, latitude, longitude]
+    );
+
+    res.status(201).json({ message: 'Sensor added successfully' });
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ message: 'Failed to add sensor' });
+  }
+});
+
+// Delete sensor
+app.delete('/api/sensors/:id', async (req, res) => {
+  const sensorId = req.params.id;
+
+  try {
+    // First delete all measurements for this sensor due to foreign key constraint
+    await dbClient.query(
+      'DELETE FROM measurements WHERE sensor_id = $1',
+      [sensorId]
+    );
+
+    // Then delete the sensor
+    const result = await dbClient.query(
+      'DELETE FROM sensors WHERE id = $1',
+      [sensorId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Sensor not found' });
+    }
+
+    res.json({ message: 'Sensor deleted successfully' });
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ message: 'Failed to delete sensor' });
+  }
+});
+
+// Get all measurements
+app.get('/api/measurements', async (req, res) => {
+  try {
+    const result = await dbClient.query(
+      'SELECT m.sensor_id, m.temperature, m.humidity, m.distance, m.timestamp ' +
+      'FROM measurements m ' +
+      'JOIN sensors s ON m.sensor_id = s.id ' +
+      'ORDER BY m.timestamp DESC LIMIT 100'
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get latest sensor readings
 app.get('/api/latest', async (req, res) => {
   try {
     const result = await dbClient.query(
-      'SELECT * FROM sensor_data ORDER BY timestamp DESC LIMIT 1'
+      'SELECT m.* FROM measurements m ' +
+      'JOIN sensors s ON m.sensor_id = s.id ' +
+      'ORDER BY m.timestamp DESC LIMIT 1'
     );
     res.json(result.rows[0] || {});
   } catch (error) {
@@ -41,11 +134,15 @@ app.get('/api/latest', async (req, res) => {
   }
 });
 
+// Get historical data
 app.get('/api/history', async (req, res) => {
   try {
     const { hours = 24 } = req.query;
     const result = await dbClient.query(
-      'SELECT * FROM sensor_data WHERE timestamp > NOW() - INTERVAL $1 HOUR ORDER BY timestamp DESC',
+      'SELECT m.* FROM measurements m ' +
+      'JOIN sensors s ON m.sensor_id = s.id ' +
+      'WHERE m.timestamp > NOW() - INTERVAL $1 HOUR ' +
+      'ORDER BY m.timestamp DESC',
       [hours]
     );
     res.json(result.rows);
@@ -54,6 +151,30 @@ app.get('/api/history', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// Get latest measurements for all sensors
+app.get('/api/latest-all', async (req, res) => {
+  try {
+    const result = await dbClient.query(
+      `WITH LatestMeasurements AS (
+        SELECT DISTINCT ON (sensor_id)
+          sensor_id, distance, temperature, humidity, timestamp
+        FROM measurements
+        ORDER BY sensor_id, timestamp DESC
+      )
+      SELECT 
+        l.*
+      FROM LatestMeasurements l
+      JOIN sensors s ON l.sensor_id = s.id
+      ORDER BY s.id`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 // Function to try connecting to the database
 async function connectWithRetry(maxAttempts = 5, delay = 5000) {

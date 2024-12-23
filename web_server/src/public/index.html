@@ -39,6 +39,7 @@
         font-weight: bold;
         color: white;
         cursor: pointer;
+        text-decoration: none;
         transition: transform 0.1s, background-color 0.3s;
       }
 
@@ -73,35 +74,37 @@
       .parking-slots:hover {
         background-color: #7c3aed;
       }
+
+      .heatmap {
+        background-color: #f59e0b;
+      }
+
+      .heatmap:hover {
+        background-color: #d97706;
+      }
     </style>
   </head>
   <body>
     <div class="container">
-      <button class="button add-sensor">
+      <a href="/manage-sensors.html" class="button add-sensor">
         <i class="fas fa-plus"></i>
-        ADD SENSOR
-      </button>
+        MANAGE SENSORS
+      </a>
 
-      <button class="button show-measurements">
+      <a href="/measurements.html" class="button show-measurements">
         <i class="fas fa-chart-line"></i>
         SHOW MEASUREMENTS
-      </button>
+      </a>
 
-      <button class="button parking-slots">
+      <a href="/parkings.html" class="button parking-slots">
         <i class="fas fa-car"></i>
         PARKING SLOTS
-      </button>
-    </div>
+      </a>
 
-    <script>
-      // Add click event listeners to buttons
-      document.querySelectorAll(".button").forEach((button) => {
-        button.addEventListener("click", function () {
-          const action = this.textContent.trim();
-          console.log(`Clicked: ${action}`);
-          // You can add specific actions for each button here
-        });
-      });
-    </script>
+      <a href="/heatmap.html" class="button heatmap">
+        <i class="fas fa-map"></i>
+        ENVIRONMENT MAPS
+      </a>
+    </div>
   </body>
 </html>

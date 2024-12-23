@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Environmental Maps</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+    <style>
+      :root {
+        --primary-color: #3b82f6;
+        --hover-color: #2563eb;
+        --background-color: #f3f4f6;
+        --card-background: #ffffff;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background-color: var(--background-color);
+        font-family: Arial, sans-serif;
+      }
+
+      .container {
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .back-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        text-decoration: none;
+        transition: background-color 0.3s;
+      }
+
+      .back-button:hover {
+        background-color: var(--hover-color);
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+      }
+
+      .toggle-button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 500;
+        transition: all 0.3s;
+        background-color: #e5e7eb;
+        color: #374151;
+      }
+
+      .toggle-button.active {
+        background-color: var(--primary-color);
+        color: white;
+      }
+
+      .toggle-button:hover:not(.active) {
+        background-color: #d1d5db;
+      }
+
+      .map-container {
+        background-color: var(--card-background);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        height: calc(100vh - 140px);
+        min-height: 500px;
+        position: relative;
+      }
+
+      #map {
+        height: 100%;
+        width: 100%;
+      }
+
+      .legend {
+        position: absolute;
+        bottom: 30px;
+        right: 30px;
+        width: 300px;
+        background: white;
+        padding: 12px;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+      }
+      .legend-title {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+
+      .legend-gradient {
+        height: 20px;
+        border-radius: 3px;
+      }
+
+      .legend-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <a href="/" class="back-button">
+          <i class="fas fa-arrow-left"></i>
+          Back to Home
+        </a>
+        <div class="controls">
+          <button
+            id="tempButton"
+            class="toggle-button active"
+            onclick="toggleLayer('temp')"
+          >
+            <i class="fas fa-thermometer-half"></i>
+            Temperature
+          </button>
+          <button
+            id="humidButton"
+            class="toggle-button"
+            onclick="toggleLayer('humid')"
+          >
+            <i class="fas fa-tint"></i>
+            Humidity
+          </button>
+        </div>
+      </div>
+
+      <div class="map-container">
+        <div id="map"></div>
+      </div>
+    </div>
+
+    <script>
+      let map;
+      let tempHeatLayer;
+      let humidHeatLayer;
+      let currentMode = "temp";
+      let sensorsData = [];
+
+      function initMap() {
+        map = L.map("map", {
+          maxZoom: 19,
+        }).setView([0, 0], 2);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors",
+          maxZoom: 19,
+        }).addTo(map);
+
+        // Initialize empty heat layers
+        tempHeatLayer = L.heatLayer([], {
+          radius: 50,
+          blur: 30,
+          maxZoom: 19,
+          minOpacity: 0.4,
+          gradient: {
+            0.0: "#8b008b", // Purple (coldest)
+            0.2: "#0000ff", // Blue
+            0.4: "#00ff00", // Green
+            0.6: "#ffff00", // Yellow
+            0.8: "#ff4500", // Orange-Red
+            1.0: "#ff0000", // Red (hottest)
+          },
+          scaleRadius: true,
+          useLocalExtrema: true,
+        });
+
+        humidHeatLayer = L.heatLayer([], {
+          radius: 50,
+          blur: 30,
+          maxZoom: 19,
+          minOpacity: 0.4,
+          gradient: {
+            0.0: "#ff0000", // Red (driest)
+            0.25: "#ff4500", // Orange-Red
+            0.5: "#00ff00", // Green
+            0.75: "#87ceeb", // Light Blue
+            1.0: "#00008b", // Dark Blue (most humid)
+          },
+          scaleRadius: true,
+          useLocalExtrema: true,
+        });
+      }
+
+      function updateHeatmap(data) {
+        // Process data for heatmap
+        const tempData = data.map((sensor) => [
+          sensor.latitude,
+          sensor.longitude,
+          normalizeTemperature(sensor.temperature),
+        ]);
+
+        const humidData = data.map((sensor) => [
+          sensor.latitude,
+          sensor.longitude,
+          normalizeHumidity(sensor.humidity),
+        ]);
+
+        // Update layers
+        tempHeatLayer.setLatLngs(tempData);
+        humidHeatLayer.setLatLngs(humidData);
+
+        // Show current layer
+        toggleLayer(currentMode);
+
+        // Fit map to show all sensors
+        if (data.length > 0) {
+          const bounds = L.latLngBounds(
+            data.map((s) => [s.latitude, s.longitude])
+          );
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
+      }
+
+      function normalizeTemperature(temp) {
+        // Normalize temperature to 0-1 range
+        // Assuming temperature range of -10 to 40 degrees
+        return (temp + 10) / 50;
+      }
+
+      function normalizeHumidity(humid) {
+        // Normalize humidity to 0-1 range
+        // Humidity is already 0-100
+        return humid / 100;
+      }
+
+      function toggleLayer(mode) {
+        currentMode = mode;
+
+        // Remove both layers
+        map.removeLayer(tempHeatLayer);
+        map.removeLayer(humidHeatLayer);
+
+        // Add selected layer
+        if (mode === "temp") {
+          tempHeatLayer.addTo(map);
+          document.getElementById("tempButton").classList.add("active");
+          document.getElementById("humidButton").classList.remove("active");
+          updateLegend("Temperature", true);
+        } else {
+          humidHeatLayer.addTo(map);
+          document.getElementById("humidButton").classList.add("active");
+          document.getElementById("tempButton").classList.remove("active");
+          updateLegend("Humidity", false);
+        }
+      }
+
+      function updateLegend(title, isTemperature) {
+        // Remove existing legend if any
+        const existingLegend = document.querySelector(".legend");
+        if (existingLegend) {
+          existingLegend.remove();
+        }
+
+        // Define gradient based on type
+        const gradient = isTemperature
+          ? "linear-gradient(to right, #8b008b, #0000ff, #00ff00, #ffff00, #ff4500, #ff0000)"
+          : "linear-gradient(to right, #ff0000, #ff4500, #00ff00, #87ceeb, #00008b)";
+
+        // Define labels based on type
+        const labels = isTemperature
+          ? ["< -10°C", "-5°C", "0°C", "20°C", "30°C", "> 40°C"]
+          : ["0%", "25%", "50%", "75%", "100%"];
+
+        // Create legend HTML
+        const legend = document.createElement("div");
+        legend.className = "legend";
+        legend.innerHTML = `
+            <div class="legend-title">${title}</div>
+            <div class="legend-gradient" style="background: ${gradient}"></div>
+            <div class="legend-labels">
+                ${labels.map((label) => `<span>${label}</span>`).join("")}
+            </div>
+        `;
+
+        document.querySelector(".map-container").appendChild(legend);
+      }
+
+      async function fetchData() {
+        try {
+          const [measurementsResponse, sensorsResponse] = await Promise.all([
+            fetch("/api/latest-all"),
+            fetch("/api/sensors"),
+          ]);
+
+          const measurements = await measurementsResponse.json();
+          const sensors = await sensorsResponse.json();
+
+          // Combine sensor locations with their measurements
+          const data = measurements.map((measurement) => {
+            const sensor = sensors.find(
+              (s) => s.sensor_id === measurement.sensor_id
+            );
+            return {
+              ...measurement,
+              latitude: sensor.latitude,
+              longitude: sensor.longitude,
+            };
+          });
+
+          updateHeatmap(data);
+        } catch (error) {
+          console.error("Error fetching data:", error);
+        }
+      }
+
+      // Initialize
+      initMap();
+      fetchData();
+
+      // Refresh every 30 seconds
+      setInterval(fetchData, 30000);
+    </script>
+  </body>
+</html>

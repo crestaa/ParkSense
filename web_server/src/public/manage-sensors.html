@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Sensors</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <style>
+      :root {
+        --primary-color: #3b82f6;
+        --hover-color: #2563eb;
+        --danger-color: #ef4444;
+        --danger-hover: #dc2626;
+        --background-color: #f3f4f6;
+        --card-background: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background-color: var(--background-color);
+        font-family: Arial, sans-serif;
+        color: var(--text-color);
+      }
+
+      .container {
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+      }
+
+      .content-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+
+      @media (max-width: 768px) {
+        .content-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .back-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        text-decoration: none;
+        transition: background-color 0.3s;
+      }
+
+      .back-button:hover {
+        background-color: var(--hover-color);
+      }
+
+      .add-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background-color: #10b981;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+      }
+
+      .add-button:hover {
+        background-color: #059669;
+      }
+
+      .sensors-card {
+        background-color: var(--card-background);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .map-container {
+        background-color: var(--card-background);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        height: 400px;
+      }
+
+      #map {
+        height: 100%;
+        width: 100%;
+      }
+
+      .table-container {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 600px;
+      }
+
+      th,
+      td {
+        padding: 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #4b5563;
+      }
+
+      tr:hover {
+        background-color: #f8fafc;
+      }
+
+      .sensor-id {
+        font-family: monospace;
+        color: #6366f1;
+      }
+
+      .delete-button {
+        padding: 6px 12px;
+        background-color: var(--danger-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      .delete-button:hover {
+        background-color: var(--danger-hover);
+      }
+
+      /* Modal styles */
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+      }
+
+      .modal.active {
+        display: flex;
+      }
+
+      .modal-content {
+        background-color: white;
+        padding: 24px;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .modal-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: var(--text-color);
+      }
+
+      .close-button {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #6b7280;
+      }
+
+      .form-group {
+        margin-bottom: 16px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #4b5563;
+        font-weight: 500;
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 16px;
+      }
+
+      .form-group input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+      }
+
+      .submit-button {
+        width: 100%;
+        padding: 12px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      .submit-button:hover {
+        background-color: var(--hover-color);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #6b7280;
+      }
+
+      @media (max-width: 640px) {
+        .header {
+          flex-direction: column;
+          gap: 16px;
+        }
+      }
+
+      .leaflet-popup-content {
+        font-family: Arial, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <a href="/" class="back-button">
+          <i class="fas fa-arrow-left"></i>
+          Back to Home
+        </a>
+        <button class="add-button" onclick="openModal()">
+          <i class="fas fa-plus"></i>
+          Add New Sensor
+        </button>
+      </div>
+
+      <div class="content-grid">
+        <div class="sensors-card">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Sensor ID</th>
+                  <th>Latitude</th>
+                  <th>Longitude</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="sensors-table">
+                <tr>
+                  <td colspan="4" class="empty-state">Loading sensors...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="map-container">
+          <div id="map"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" id="addSensorModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">Add New Sensor</h2>
+          <button class="close-button" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="addSensorForm" onsubmit="handleSubmit(event)">
+          <div class="form-group">
+            <label for="sensorId">Sensor ID</label>
+            <input
+              type="text"
+              id="sensorId"
+              name="sensorId"
+              required
+              pattern="[A-Za-z0-9_-]+"
+              title="Letters, numbers, hyphens, and underscores only"
+            />
+          </div>
+          <div class="form-group">
+            <label for="latitude">Latitude</label>
+            <input
+              type="number"
+              id="latitude"
+              name="latitude"
+              required
+              step="any"
+              min="-90"
+              max="90"
+            />
+          </div>
+          <div class="form-group">
+            <label for="longitude">Longitude</label>
+            <input
+              type="number"
+              id="longitude"
+              name="longitude"
+              required
+              step="any"
+              min="-180"
+              max="180"
+            />
+          </div>
+          <button type="submit" class="submit-button">Add Sensor</button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      let map;
+      let markers = {};
+      let sensorsData = [];
+
+      // Initialize map
+      function initMap() {
+        map = L.map("map").setView([0, 0], 2);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors",
+        }).addTo(map);
+      }
+
+      function addMarker(sensor) {
+        const marker = L.marker([sensor.latitude, sensor.longitude]).bindPopup(`
+                    <strong>Sensor ID:</strong> ${sensor.sensor_id}<br>
+                    <strong>Latitude:</strong> ${sensor.latitude.toFixed(6)}<br>
+                    <strong>Longitude:</strong> ${sensor.longitude.toFixed(6)}
+                `);
+        markers[sensor.sensor_id] = marker;
+        marker.addTo(map);
+      }
+
+      function removeMarker(sensorId) {
+        if (markers[sensorId]) {
+          map.removeLayer(markers[sensorId]);
+          delete markers[sensorId];
+        }
+      }
+
+      function updateMapView() {
+        if (sensorsData.length > 0) {
+          const bounds = L.latLngBounds(
+            sensorsData.map((s) => [s.latitude, s.longitude])
+          );
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
+      }
+
+      async function fetchSensors() {
+        try {
+          const response = await fetch("/api/sensors");
+          const data = await response.json();
+          sensorsData = data;
+          displaySensors(data);
+
+          // Clear existing markers
+          Object.values(markers).forEach((marker) => map.removeLayer(marker));
+          markers = {};
+
+          // Add markers for all sensors
+          data.forEach(addMarker);
+          updateMapView();
+        } catch (error) {
+          console.error("Error fetching sensors:", error);
+          document.getElementById("sensors-table").innerHTML = `
+                    <tr>
+                        <td colspan="4" class="empty-state">
+                            Error loading sensors. Please try again later.
+                        </td>
+                    </tr>
+                `;
+        }
+      }
+
+      function displaySensors(sensors) {
+        const tbody = document.getElementById("sensors-table");
+
+        if (!sensors.length) {
+          tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="empty-state">
+                            No sensors found. Click "Add New Sensor" to add one.
+                        </td>
+                    </tr>
+                `;
+          return;
+        }
+
+        tbody.innerHTML = sensors
+          .map(
+            (s) => `
+                <tr>
+                    <td class="sensor-id">${s.sensor_id}</td>
+                    <td>${s.latitude.toFixed(6)}</td>
+                    <td>${s.longitude.toFixed(6)}</td>
+                    <td>
+                        <button class="delete-button" onclick="deleteSensor('${
+                          s.sensor_id
+                        }')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `
+          )
+          .join("");
+      }
+
+      async function deleteSensor(sensorId) {
+        if (!confirm(`Are you sure you want to delete sensor ${sensorId}?`)) {
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/sensors/${sensorId}`, {
+            method: "DELETE",
+          });
+
+          if (response.ok) {
+            removeMarker(sensorId);
+            await fetchSensors();
+          } else {
+            alert("Failed to delete sensor. Please try again.");
+          }
+        } catch (error) {
+          console.error("Error deleting sensor:", error);
+          alert("Error deleting sensor. Please try again.");
+        }
+      }
+
+      function openModal() {
+        document.getElementById("addSensorModal").classList.add("active");
+      }
+
+      function closeModal() {
+        document.getElementById("addSensorModal").classList.remove("active");
+        document.getElementById("addSensorForm").reset();
+      }
+
+      async function handleSubmit(event) {
+        event.preventDefault();
+
+        const formData = {
+          sensor_id: document.getElementById("sensorId").value,
+          latitude: parseFloat(document.getElementById("latitude").value),
+          longitude: parseFloat(document.getElementById("longitude").value),
+        };
+
+        try {
+          const response = await fetch("/api/sensors", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(formData),
+          });
+
+          if (response.ok) {
+            closeModal();
+            await fetchSensors();
+          } else {
+            const error = await response.json();
+            alert(error.message || "Failed to add sensor. Please try again.");
+          }
+        } catch (error) {
+          console.error("Error adding sensor:", error);
+          alert("Error adding sensor. Please try again.");
+        }
+      }
+
+      // Initialize map and set up all event handlers
+      function initMap() {
+        map = L.map("map", {
+          maxZoom: 22, // Allow higher zoom level
+        }).setView([0, 0], 2);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors",
+          maxZoom: 22, // Enable maximum zoom from OSM
+        }).addTo(map);
+
+        // Add click handler for the map
+        map.on("click", function (e) {
+          const lat = e.latlng.lat;
+          const lng = e.latlng.lng;
+
+          // Fill the form with the clicked coordinates
+          document.getElementById("latitude").value = lat.toFixed(6);
+          document.getElementById("longitude").value = lng.toFixed(6);
+
+          // Open the modal
+          openModal();
+        });
+      }
+
+      // Add click handler for table rows to center map on sensor
+      function setupTableHandlers() {
+        document
+          .getElementById("sensors-table")
+          .addEventListener("click", function (e) {
+            const row = e.target.closest("tr");
+            if (!row) return;
+
+            const sensorId = row.querySelector(".sensor-id")?.textContent;
+            if (sensorId && markers[sensorId]) {
+              const marker = markers[sensorId];
+              map.setView(marker.getLatLng(), 18); // Increased zoom level when clicking on a sensor
+              marker.openPopup();
+            }
+          });
+      }
+
+      // Update map view to show all sensors
+      function updateMapView() {
+        if (sensorsData.length > 0) {
+          const bounds = L.latLngBounds(
+            sensorsData.map((s) => [s.latitude, s.longitude])
+          );
+          map.fitBounds(bounds, {
+            padding: [50, 50],
+            maxZoom: 18, // Set maximum zoom when fitting bounds
+          });
+        }
+      }
+
+      // Start the application
+      function init() {
+        initMap();
+        setupTableHandlers();
+        fetchSensors();
+      }
+
+      // Initialize everything when the page loads
+      document.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>

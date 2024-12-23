@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Parking Slots</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <style>
+      :root {
+        --primary-color: #3b82f6;
+        --hover-color: #2563eb;
+        --background-color: #f3f4f6;
+        --card-background: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --occupied-color: #ef4444;
+        --available-color: #3b82f6;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background-color: var(--background-color);
+        font-family: Arial, sans-serif;
+        color: var(--text-color);
+      }
+
+      .container {
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+      }
+
+      .back-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        text-decoration: none;
+        transition: background-color 0.3s;
+      }
+
+      .back-button:hover {
+        background-color: var(--hover-color);
+      }
+
+      .map-container {
+        background-color: var(--card-background);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        height: 400px;
+        margin-bottom: 30px;
+      }
+
+      #map {
+        height: 100%;
+        width: 100%;
+      }
+
+      .slots-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+      }
+
+      .slot-card {
+        background-color: var(--card-background);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s;
+        cursor: pointer;
+      }
+
+      .slot-card:hover {
+        transform: translateY(-2px);
+      }
+
+      .slot-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .slot-id {
+        font-size: 18px;
+        font-weight: bold;
+        font-family: monospace;
+      }
+
+      .slot-status {
+        padding: 6px 12px;
+        border-radius: 20px;
+        color: white;
+        font-weight: 500;
+        font-size: 14px;
+      }
+
+      .status-occupied {
+        background-color: var(--occupied-color);
+      }
+
+      .status-available {
+        background-color: var(--available-color);
+      }
+
+      .measurements {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .measurement {
+        text-align: center;
+        padding: 8px;
+        background-color: #f8fafc;
+        border-radius: 8px;
+      }
+
+      .measurement-label {
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 4px;
+      }
+
+      .measurement-value {
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .last-update {
+        font-size: 14px;
+        color: #6b7280;
+        text-align: right;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #6b7280;
+        grid-column: 1 / -1;
+      }
+
+      .leaflet-popup-content {
+        font-family: Arial, sans-serif;
+      }
+
+      @media (max-width: 640px) {
+        .header {
+          flex-direction: column;
+          gap: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <a href="/" class="back-button">
+          <i class="fas fa-arrow-left"></i>
+          Back to Home
+        </a>
+      </div>
+
+      <div class="map-container">
+        <div id="map"></div>
+      </div>
+
+      <div class="slots-grid" id="slotsGrid">
+        <div class="empty-state">
+          <i class="fas fa-spinner fa-spin"></i>
+          Loading parking slots...
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let map;
+      let markers = {};
+
+      function initMap() {
+        map = L.map("map", {
+          maxZoom: 19,
+        }).setView([0, 0], 2);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors",
+          maxZoom: 19,
+        }).addTo(map);
+      }
+
+      function getTimeDifference(timestamp) {
+        const now = new Date();
+        const measurementTime = new Date(timestamp);
+        const diffInSeconds = Math.floor((now - measurementTime) / 1000);
+
+        if (diffInSeconds < 60) {
+          return `${diffInSeconds} seconds ago`;
+        } else if (diffInSeconds < 3600) {
+          const minutes = Math.floor(diffInSeconds / 60);
+          return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
+        } else if (diffInSeconds < 86400) {
+          const hours = Math.floor(diffInSeconds / 3600);
+          return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
+        } else {
+          const days = Math.floor(diffInSeconds / 86400);
+          return `${days} day${days !== 1 ? "s" : ""} ago`;
+        }
+      }
+
+      function createCustomMarker(isOccupied) {
+        const markerColor = isOccupied ? "#ef4444" : "#3b82f6";
+        return L.divIcon({
+          className: "custom-marker",
+          html: `<svg width="24" height="36" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 0C5.37 0 0 5.37 0 12c0 9 12 24 12 24s12-15 12-24c0-6.63-5.37-12-12-12z" fill="${markerColor}"/>
+                    <circle cx="12" cy="12" r="6" fill="white"/>
+                </svg>`,
+          iconSize: [24, 36],
+          iconAnchor: [12, 36],
+          popupAnchor: [0, -36],
+        });
+      }
+
+      function updateMarker(slot, coordinates) {
+        const isOccupied = slot.distance <= 30;
+
+        // Remove existing marker if it exists
+        if (markers[slot.sensor_id]) {
+          map.removeLayer(markers[slot.sensor_id]);
+        }
+
+        // Create new marker
+        const marker = L.marker([coordinates.latitude, coordinates.longitude], {
+          icon: createCustomMarker(isOccupied),
+        });
+
+        // Add popup with info
+        marker.bindPopup(`
+                <strong>${slot.sensor_id}</strong><br>
+                Status: ${isOccupied ? "Occupied" : "Available"}<br>
+                Distance: ${slot.distance.toFixed(1)} cm<br>
+                Temperature: ${slot.temperature.toFixed(1)}°C<br>
+                Humidity: ${slot.humidity.toFixed(1)}%<br>
+                Updated: ${getTimeDifference(slot.timestamp)}
+            `);
+
+        markers[slot.sensor_id] = marker;
+        marker.addTo(map);
+      }
+
+      function updateMapView() {
+        if (Object.keys(markers).length > 0) {
+          const bounds = L.latLngBounds(
+            Object.values(markers).map((marker) => marker.getLatLng())
+          );
+          map.fitBounds(bounds, {
+            padding: [50, 50],
+            maxZoom: 18,
+          });
+        }
+      }
+
+      function updateSlotDisplay(slot, coordinates) {
+        const isOccupied = slot.distance <= 30;
+        const statusClass = isOccupied ? "status-occupied" : "status-available";
+        const statusText = isOccupied ? "Occupied" : "Available";
+
+        return `
+                <div class="slot-card" onclick="focusMarker('${
+                  slot.sensor_id
+                }')">
+                    <div class="slot-header">
+                        <span class="slot-id">${slot.sensor_id}</span>
+                        <span class="slot-status ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="measurements">
+                        <div class="measurement">
+                            <div class="measurement-label">Distance</div>
+                            <div class="measurement-value">${slot.distance.toFixed(
+                              1
+                            )} cm</div>
+                        </div>
+                        <div class="measurement">
+                            <div class="measurement-label">Temperature</div>
+                            <div class="measurement-value">${slot.temperature.toFixed(
+                              1
+                            )}°C</div>
+                        </div>
+                        <div class="measurement">
+                            <div class="measurement-label">Humidity</div>
+                            <div class="measurement-value">${slot.humidity.toFixed(
+                              1
+                            )}%</div>
+                        </div>
+                    </div>
+                    <div class="last-update">
+                        Updated ${getTimeDifference(slot.timestamp)}
+                    </div>
+                </div>
+            `;
+      }
+
+      function focusMarker(sensorId) {
+        const marker = markers[sensorId];
+        if (marker) {
+          map.setView(marker.getLatLng(), 18);
+          marker.openPopup();
+        }
+      }
+
+      async function fetchLatestMeasurements() {
+        try {
+          const [measurementsResponse, sensorsResponse] = await Promise.all([
+            fetch("/api/latest-all"),
+            fetch("/api/sensors"),
+          ]);
+          const measurements = await measurementsResponse.json();
+          const sensors = await sensorsResponse.json();
+
+          // Create a map of sensor coordinates
+          const sensorCoordinates = {};
+          sensors.forEach((sensor) => {
+            sensorCoordinates[sensor.sensor_id] = {
+              latitude: sensor.latitude,
+              longitude: sensor.longitude,
+            };
+          });
+
+          const grid = document.getElementById("slotsGrid");
+
+          if (!measurements || !measurements.length) {
+            grid.innerHTML = `
+                        <div class="empty-state">
+                            No parking slots found
+                        </div>
+                    `;
+            return;
+          }
+
+          // Update markers and grid
+          grid.innerHTML = measurements
+            .map((slot) => {
+              const coordinates = sensorCoordinates[slot.sensor_id];
+              if (coordinates) {
+                updateMarker(slot, coordinates);
+                return updateSlotDisplay(slot, coordinates);
+              }
+              return "";
+            })
+            .join("");
+
+          // Update map view to show all markers
+          updateMapView();
+        } catch (error) {
+          console.error("Error fetching data:", error);
+          document.getElementById("slotsGrid").innerHTML = `
+                    <div class="empty-state">
+                        Error loading parking slots. Please try again later.
+                    </div>
+                `;
+        }
+      }
+
+      // Initialize map
+      initMap();
+
+      // Initial load
+      fetchLatestMeasurements();
+
+      // Refresh every 30 seconds
+      setInterval(fetchLatestMeasurements, 30000);
+    </script>
+  </body>
+</html>
