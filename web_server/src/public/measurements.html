@@ -205,26 +205,40 @@
 
         if (!measurements.length) {
           tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="empty-state">
-                            No measurements found
-                        </td>
-                    </tr>
-                `;
+            <tr>
+                <td colspan="5" class="empty-state">
+                    No measurements found
+                </td>
+            </tr>
+        `;
           return;
         }
 
         tbody.innerHTML = measurements
           .map(
             (m) => `
-                <tr>
-                    <td class="sensor-id">${m.sensor_id}</td>
-                    <td>${m.temperature.toFixed(1)}</td>
-                    <td>${m.humidity.toFixed(1)}</td>
-                    <td>${m.distance.toFixed(1)}</td>
-                    <td>${new Date(m.timestamp).toLocaleString()}</td>
-                </tr>
-            `
+            <tr>
+                <td class="sensor-id">${m.sensor_id || "N/A"}</td>
+                <td>${
+                  m.temperature !== null && m.temperature !== undefined
+                    ? m.temperature.toFixed(1)
+                    : "N/A"
+                }</td>
+                <td>${
+                  m.humidity !== null && m.humidity !== undefined
+                    ? m.humidity.toFixed(1)
+                    : "N/A"
+                }</td>
+                <td>${
+                  m.distance !== null && m.distance !== undefined
+                    ? m.distance.toFixed(1)
+                    : "N/A"
+                }</td>
+                <td>${
+                  m.timestamp ? new Date(m.timestamp).toLocaleString() : "N/A"
+                }</td>
+            </tr>
+        `
           )
           .join("");
       }
@@ -243,11 +257,13 @@
           headers.join(","),
           ...measurementsData.map((m) =>
             [
-              m.sensor_id,
-              m.temperature,
-              m.humidity,
-              m.distance,
-              new Date(m.timestamp).toISOString(),
+              m.sensor_id || "",
+              m.temperature !== null && m.temperature !== undefined
+                ? m.temperature
+                : "",
+              m.humidity !== null && m.humidity !== undefined ? m.humidity : "",
+              m.distance !== null && m.distance !== undefined ? m.distance : "",
+              m.timestamp ? new Date(m.timestamp).toISOString() : "",
             ].join(",")
           ),
         ].join("\n");

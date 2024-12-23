@@ -17,11 +17,12 @@ const mqttConfig = {
   password: process.env.MQTT_PASSWORD
 };
 
-interface Measurement {
-  sensor_id: string;  // Now part of the JSON payload
-  temperature?: number;
-  humidity?: number;
-  distance?: number;
+interface SensorData {
+  t: number;    // temperature
+  h: number;    // humidity
+  d: number;    // distance
+  m: string;    // sensor_id (MAC address)
+  b: number;    // boot_count (not stored)
 }
 
 async function setupDatabase() {
@@ -30,25 +31,15 @@ async function setupDatabase() {
   
   // Load and execute initialization script
   const initScript = `
-    -- Create SENSORS table
-    CREATE TABLE IF NOT EXISTS sensors (
-        id VARCHAR(255) PRIMARY KEY,
-        latitude FLOAT NOT NULL,
-        longitude FLOAT NOT NULL
-    );
-
-    -- Create MEASUREMENTS table
     CREATE TABLE IF NOT EXISTS measurements (
         id SERIAL PRIMARY KEY,
         sensor_id VARCHAR(255) NOT NULL,
         distance FLOAT,
         temperature FLOAT,
         humidity FLOAT,
-        timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (sensor_id) REFERENCES sensors(id)
+        timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- Create indexes
     CREATE INDEX IF NOT EXISTS idx_measurements_timestamp 
         ON measurements(timestamp);
     CREATE INDEX IF NOT EXISTS idx_measurements_sensor_id 
@@ -89,10 +80,10 @@ async function main() {
   
   mqttClient.on('message', async (_topic, message) => {
     try {
-      const data = JSON.parse(message.toString()) as Measurement;
+      const data = JSON.parse(message.toString()) as SensorData;
       
-      if (!data.sensor_id) {
-        throw new Error('Missing sensor_id in message payload');
+      if (!data.m) {
+        throw new Error('Missing sensor_id (m) in message payload');
       }
       
       // Insert data into measurements table
@@ -102,14 +93,17 @@ async function main() {
         VALUES ($1, $2, $3, $4)
       `;
       
-      await dbClient.query(query, [
-        data.sensor_id,
-        data.temperature || null,
-        data.humidity || null,
-        data.distance || null
-      ]);
+      // Explicitly check each field and convert undefined to null
+      const params = [
+        data.m ?? null,                                        // sensor_id
+        typeof data.t !== 'undefined' ? data.t : null,        // temperature
+        typeof data.h !== 'undefined' ? data.h : null,        // humidity
+        typeof data.d !== 'undefined' ? data.d : null         // distance
+      ];
+
+      await dbClient.query(query, params);
       
-      console.log('Measurement saved for sensor:', data.sensor_id);
+      console.log(`Measurement saved - Sensor: ${data.m}, Temp: ${data.t}°C, Humidity: ${data.h}%, Distance: ${data.d}m`);
     } catch (error) {
       console.error('Error processing message:', error);
     }

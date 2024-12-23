@@ -247,7 +247,10 @@
       }
 
       function updateMarker(slot, coordinates) {
-        const isOccupied = slot.distance <= 30;
+        const isOccupied =
+          slot.distance !== null && slot.distance !== undefined
+            ? slot.distance <= 30
+            : false;
 
         // Remove existing marker if it exists
         if (markers[slot.sensor_id]) {
@@ -259,15 +262,31 @@
           icon: createCustomMarker(isOccupied),
         });
 
+        // Format values with null checking
+        const distance =
+          slot.distance !== null && slot.distance !== undefined
+            ? `${slot.distance.toFixed(1)} cm`
+            : "N/A";
+        const temperature =
+          slot.temperature !== null && slot.temperature !== undefined
+            ? `${slot.temperature.toFixed(1)}°C`
+            : "N/A";
+        const humidity =
+          slot.humidity !== null && slot.humidity !== undefined
+            ? `${slot.humidity.toFixed(1)}%`
+            : "N/A";
+
         // Add popup with info
         marker.bindPopup(`
-                <strong>${slot.sensor_id}</strong><br>
-                Status: ${isOccupied ? "Occupied" : "Available"}<br>
-                Distance: ${slot.distance.toFixed(1)} cm<br>
-                Temperature: ${slot.temperature.toFixed(1)}°C<br>
-                Humidity: ${slot.humidity.toFixed(1)}%<br>
-                Updated: ${getTimeDifference(slot.timestamp)}
-            `);
+            <strong>${slot.sensor_id || "Unknown"}</strong><br>
+            Status: ${isOccupied ? "Occupied" : "Available"}<br>
+            Distance: ${distance}<br>
+            Temperature: ${temperature}<br>
+            Humidity: ${humidity}<br>
+            Updated: ${
+              slot.timestamp ? getTimeDifference(slot.timestamp) : "N/A"
+            }
+        `);
 
         markers[slot.sensor_id] = marker;
         marker.addTo(map);
@@ -286,43 +305,54 @@
       }
 
       function updateSlotDisplay(slot, coordinates) {
-        const isOccupied = slot.distance <= 30;
+        const isOccupied =
+          slot.distance !== null && slot.distance !== undefined
+            ? slot.distance <= 30
+            : false;
         const statusClass = isOccupied ? "status-occupied" : "status-available";
         const statusText = isOccupied ? "Occupied" : "Available";
 
+        // Format values with null checking
+        const distance =
+          slot.distance !== null && slot.distance !== undefined
+            ? `${slot.distance.toFixed(1)} cm`
+            : "N/A";
+        const temperature =
+          slot.temperature !== null && slot.temperature !== undefined
+            ? `${slot.temperature.toFixed(1)}°C`
+            : "N/A";
+        const humidity =
+          slot.humidity !== null && slot.humidity !== undefined
+            ? `${slot.humidity.toFixed(1)}%`
+            : "N/A";
+
         return `
-                <div class="slot-card" onclick="focusMarker('${
-                  slot.sensor_id
-                }')">
-                    <div class="slot-header">
-                        <span class="slot-id">${slot.sensor_id}</span>
-                        <span class="slot-status ${statusClass}">${statusText}</span>
-                    </div>
-                    <div class="measurements">
-                        <div class="measurement">
-                            <div class="measurement-label">Distance</div>
-                            <div class="measurement-value">${slot.distance.toFixed(
-                              1
-                            )} cm</div>
-                        </div>
-                        <div class="measurement">
-                            <div class="measurement-label">Temperature</div>
-                            <div class="measurement-value">${slot.temperature.toFixed(
-                              1
-                            )}°C</div>
-                        </div>
-                        <div class="measurement">
-                            <div class="measurement-label">Humidity</div>
-                            <div class="measurement-value">${slot.humidity.toFixed(
-                              1
-                            )}%</div>
-                        </div>
-                    </div>
-                    <div class="last-update">
-                        Updated ${getTimeDifference(slot.timestamp)}
-                    </div>
+        <div class="slot-card" onclick="focusMarker('${slot.sensor_id || ""}')">
+            <div class="slot-header">
+                <span class="slot-id">${slot.sensor_id || "Unknown"}</span>
+                <span class="slot-status ${statusClass}">${statusText}</span>
+            </div>
+            <div class="measurements">
+                <div class="measurement">
+                    <div class="measurement-label">Distance</div>
+                    <div class="measurement-value">${distance}</div>
                 </div>
-            `;
+                <div class="measurement">
+                    <div class="measurement-label">Temperature</div>
+                    <div class="measurement-value">${temperature}</div>
+                </div>
+                <div class="measurement">
+                    <div class="measurement-label">Humidity</div>
+                    <div class="measurement-value">${humidity}</div>
+                </div>
+            </div>
+            <div class="last-update">
+                Updated ${
+                  slot.timestamp ? getTimeDifference(slot.timestamp) : "N/A"
+                }
+            </div>
+        </div>
+    `;
       }
 
       function focusMarker(sensorId) {
