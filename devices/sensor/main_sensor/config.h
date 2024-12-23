@@ -6,6 +6,6 @@
 #define DHTPIN 23   
 #define DHTTYPE DHT22  
 
-// HC-SR04 config (leave as it is if not in use)
-#define TRIGGER_PIN  13 
-#define ECHO_PIN     12 
+// VL53L0X config (leave as it is if not in use)
+#define SDA_PIN 18
+#define SCL_PIN 19

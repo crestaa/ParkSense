@@ -1,6 +1,10 @@
 #include "LoRaWan_APP.h"
 #include "Arduino.h"
 #include "HT_SSD1306Wire.h"
+#include "config.h"
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
 
 #define RF_FREQUENCY 868000000 // Hz
 #define LORA_BANDWIDTH 0 // [0: 125 kHz, 1: 250 kHz, 2: 500 kHz, 3: Reserved]
@@ -16,10 +20,83 @@
 // OLED Display
 SSD1306Wire disp(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
 
+// MQTT Client
+WiFiClient espClient;
+PubSubClient client(espClient);
+
 char rxpacket[BUFFER_SIZE];
 static RadioEvents_t RadioEvents;
+String clientId; // To store MAC address
 
-void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr);
+void setupWiFi() {
+  delay(10);
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(WIFI_SSID);
+
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  // Get MAC address
+  clientId = WiFi.macAddress();
+  clientId.replace(":", ""); // Remove colons from MAC address
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: " + WiFi.localIP().toString());
+  Serial.println("MAC address: " + clientId);
+
+  // Display WiFi status on OLED
+  disp.clear();
+  disp.drawString(0, 0, "WiFi Connected");
+  disp.drawString(0, 15, "IP: " + WiFi.localIP().toString());
+  disp.drawString(0, 30, "MAC: " + clientId);
+  disp.display();
+  delay(2000);
+}
+
+void reconnectMQTT() {
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    if (client.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
+      Serial.println("connected with client ID: " + clientId);
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" retrying in 5 seconds");
+      delay(5000);
+    }
+  }
+}
+
+void publishSensorData(const char* payload) {
+  if (!client.connected()) {
+    reconnectMQTT();
+  }
+  client.publish(MQTT_TOPIC, payload);
+}
+
+void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
+  memcpy(rxpacket, payload, size);
+  rxpacket[size] = '\0';
+  
+  Serial.printf("\r\nReceived packet \"%s\" with RSSI %d , SNR %d\r\n", rxpacket, rssi, snr);
+
+  // Display received data on OLED
+  disp.clear();
+  disp.drawString(0, 0, "Received Data:");
+  disp.drawString(0, 15, String(rxpacket));
+  disp.drawString(0, 30, "RSSI: " + String(rssi) + " dBm");
+  disp.drawString(0, 45, "SNR: " + String(snr) + " dB");
+  disp.display();
+
+  // Publish to MQTT
+  publishSensorData(rxpacket);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -27,6 +104,13 @@ void setup() {
   // Initialize OLED display
   disp.init();
   disp.setFont(ArialMT_Plain_10);
+  
+  // Setup WiFi
+  setupWiFi();
+  
+  // Setup MQTT
+  client.setServer(MQTT_BROKER, MQTT_PORT);
+  reconnectMQTT();
   
   Mcu.begin(HELTEC_BOARD, SLOW_CLK_TPYE);
   
@@ -52,19 +136,5 @@ void loop() {
   Radio.Rx(0); // Continuous receive mode
   delay(100);
   Radio.IrqProcess();
-}
-
-void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
-  memcpy(rxpacket, payload, size);
-  rxpacket[size] = '\0';
-  
-  Serial.printf("\r\nReceived packet \"%s\" with RSSI %d , SNR %d\r\n", rxpacket, rssi, snr);
-
-  // Display received data on OLED
-  disp.clear();
-  disp.drawString(0, 0, "Received Data:");
-  disp.drawString(0, 15, String(rxpacket));
-  disp.drawString(0, 30, "RSSI: " + String(rssi) + " dBm");
-  disp.drawString(0, 45, "SNR: " + String(snr) + " dB");
-  disp.display();
+  client.loop(); // Handle MQTT loop
 }

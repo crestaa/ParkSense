@@ -5,16 +5,19 @@
 #include <esp_system.h>
 #include <esp_wifi.h>
 #include <ArduinoJson.h>
-#include <Preferences.h>  // Add Preferences library
+#include <Preferences.h>
+#include <Wire.h>
+#include <VL53L0X.h>
 
 DHT dht(DHTPIN, DHTTYPE);
-Preferences preferences;  // Create Preferences object
+Preferences preferences;
+VL53L0X sensor;
 
 // Replace with the Primary MAC shown on your gateway's OLED and Serial output
-uint8_t gatewayAddress[] = ESPNOW_GATEWAY;  // Your gateway MAC
+uint8_t gatewayAddress[] = ESPNOW_GATEWAY;
 
 #define uS_TO_S_FACTOR 1000000ULL  // Conversion factor for micro seconds to seconds
-int bootCount = 0;  // Remove RTC_DATA_ATTR as we'll use Preferences instead
+int bootCount = 0;
 
 // ESP-NOW peer information
 esp_now_peer_info_t peerInfo;
@@ -57,59 +60,12 @@ void initWiFi() {
         Serial.printf("%02X:", mac[i]);
     }
     Serial.println();
-        
-    // Print gateway MAC we're trying to reach
+    
     Serial.print("Target Gateway MAC: ");
     for(int i = 0; i < 6; i++) {
         Serial.printf("%02X:", gatewayAddress[i]);
     }
     Serial.println();
-}
-
-void setup() {
-    Serial.begin(115200);
-    dht.begin();
-    
-    // Initialize Preferences
-    preferences.begin("sensor", false);  // Open preferences with namespace "sensor"
-    
-    // Get stored boot count, default to 0 if not found
-    bootCount = preferences.getInt("bootCount", 0);
-    bootCount++;  // Increment boot count
-    preferences.putInt("bootCount", bootCount);  // Save new boot count
-    Serial.println("Boot number: " + String(bootCount));
-    
-    // HC-SR04 setup
-    pinMode(TRIGGER_PIN, OUTPUT);
-    pinMode(ECHO_PIN, INPUT);
-    
-    // Initialize WiFi and get MAC
-    initWiFi();
-    
-    // Initialize ESP-NOW
-    if (esp_now_init() != ESP_OK) {
-        Serial.println("Error initializing ESP-NOW");
-        return;
-    }
-    
-    // Register peer
-    memcpy(peerInfo.peer_addr, gatewayAddress, 6);
-    peerInfo.channel = 1;  // Must match gateway channel
-    peerInfo.encrypt = false;
-    
-    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-        Serial.println("Failed to add peer");
-        return;
-    }
-    
-    // Register callback
-    esp_now_register_send_cb(OnDataSent);
-    
-    // Prepare for deep sleep
-    esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
-    
-    delay(1000);
-    performTask();
 }
 
 float readDistance() {
@@ -120,26 +76,32 @@ float readDistance() {
     float sum = 0;
     int validReadings = 0;
     
+    Serial.println("Taking distance readings...");
+    
     // Take 4 readings
     for (int i = 0; i < NUM_READINGS; i++) {
-        // HC-SR04 trigger sequence
-        digitalWrite(TRIGGER_PIN, LOW);
-        delayMicroseconds(2);
-        digitalWrite(TRIGGER_PIN, HIGH);
-        delayMicroseconds(10);
-        digitalWrite(TRIGGER_PIN, LOW);
+        uint16_t distance = sensor.readRangeSingleMillimeters();
         
-        long duration = pulseIn(ECHO_PIN, HIGH);
-        float distance = duration * 0.034 / 2;
-        
-        // Basic range check (2cm to 400cm is the sensor's range)
-        if (distance > 400 || distance <= 2) {
+        if (sensor.timeoutOccurred()) {
+            Serial.println("Timeout on reading " + String(i + 1));
             readings[i] = -1;
             continue;
         }
         
-        readings[i] = distance;
-        sum += distance;
+        // Convert to cm and check if timeout occurred
+        float distanceCm = distance / 10.0;
+        
+        // Check for timeout or out of range readings
+        // VL53L0X typical range is 3cm to 120cm
+        if (distanceCm > 120 || distanceCm < 3) {
+            Serial.println("Reading " + String(i + 1) + " out of range: " + String(distanceCm) + "cm");
+            readings[i] = -1;
+            continue;
+        }
+        
+        Serial.println("Reading " + String(i + 1) + ": " + String(distanceCm) + "cm");
+        readings[i] = distanceCm;
+        sum += distanceCm;
         validReadings++;
         
         delay(50);  // Short delay between readings
@@ -200,7 +162,7 @@ void performTask() {
         doc["d"] = distance;
         hasValidData = true;
     } else {
-        Serial.println("Failed to read from HC-SR04 sensor!");
+        Serial.println("Failed to read from VL53L0X sensor!");
     }
     
     // Add metadata
@@ -230,6 +192,56 @@ void performTask() {
         preferences.end();  // Close preferences before sleep
         esp_deep_sleep_start();
     }
+}
+
+void setup() {
+    Serial.begin(115200);
+    dht.begin();
+    
+    // Initialize I2C and VL53L0X
+    Wire.begin(SDA_PIN, SCL_PIN); 
+    sensor.init();
+    sensor.setTimeout(500);  // Set timeout to 500ms
+    
+    // Optional: Configure VL53L0X for better accuracy
+    sensor.setMeasurementTimingBudget(200000);  // Set timing budget to 200ms
+    
+    // Initialize Preferences
+    preferences.begin("sensor", false);
+    
+    // Get stored boot count, default to 0 if not found
+    bootCount = preferences.getInt("bootCount", 0);
+    bootCount++;
+    preferences.putInt("bootCount", bootCount);
+    Serial.println("Boot number: " + String(bootCount));
+    
+    // Initialize WiFi and get MAC
+    initWiFi();
+    
+    // Initialize ESP-NOW
+    if (esp_now_init() != ESP_OK) {
+        Serial.println("Error initializing ESP-NOW");
+        return;
+    }
+    
+    // Register peer
+    memcpy(peerInfo.peer_addr, gatewayAddress, 6);
+    peerInfo.channel = 1;  // Must match gateway channel
+    peerInfo.encrypt = false;
+    
+    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+        Serial.println("Failed to add peer");
+        return;
+    }
+    
+    // Register callback
+    esp_now_register_send_cb(OnDataSent);
+    
+    // Prepare for deep sleep
+    esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+    
+    delay(1000);
+    performTask();
 }
 
 void loop() {
