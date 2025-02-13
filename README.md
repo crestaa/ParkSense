@@ -38,15 +38,9 @@ ParkSense is an IoT sensor system for parking occupancy and environmental monito
 ### Hardware Setup
 
 1. Install Arduino IDE
-2. Install required libraries:
-   - ESP32 board support
-   - Heltec ESP32 board support
-   - LoRa
-   - ESP-NOW
-   - DHT sensor library
-   - VL53L0X library
-
+2. Install required libraries
 3. Flash the devices:
+
    - Upload `sensor/main_sensor.ino` to ESP32 boards
    - Upload `gateway_btm/main_gateway_btm.ino` to low-level Heltec gateways
    - Upload `gateway_top/main_gateway_top.ino` to top-level Heltec gateways
