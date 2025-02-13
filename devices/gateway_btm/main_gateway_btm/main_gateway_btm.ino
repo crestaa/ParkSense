@@ -10,10 +10,6 @@
 // OLED Display
 SSD1306Wire disp(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
 
-// PMK and LMK keys for encryption - must match sensor
-uint8_t PMK[] = "PMK1234567891234"; // 16 bytes
-uint8_t LMK[] = "LMK1234567891234"; // 16 bytes
-
 char apMacStr[18];
 // LoRa
 #define RF_FREQUENCY                                868000000 // Hz
@@ -27,12 +23,12 @@ char apMacStr[18];
                                                               //  2: 4/6,
                                                               //  3: 4/7,
                                                               //  4: 4/8]
-#define LORA_PREAMBLE_LENGTH                        8         // Same for Tx and Rx
-#define LORA_SYMBOL_TIMEOUT                         0         // Symbols
+#define LORA_PREAMBLE_LENGTH                        8         // SAME FOR TX AND RX
+#define LORA_SYMBOL_TIMEOUT                         0         
 #define LORA_FIX_LENGTH_PAYLOAD_ON                  false
 #define LORA_IQ_INVERSION_ON                        false
 #define RX_TIMEOUT_VALUE                            3000
-#define BUFFER_SIZE                                 128     // Payload size
+#define BUFFER_SIZE                                 128     
 
 char txpacket[BUFFER_SIZE];
 bool lora_idle = true;
@@ -42,20 +38,14 @@ void OnTxDone(void);
 void OnTxTimeout(void);
 
 void initWiFi() {
-    // Initialize WiFi in Station mode first
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
     delay(100);
-    
-    // Then switch to AP mode
     WiFi.mode(WIFI_AP);
     
-    // Configure WiFi channel
     wifi_second_chan_t secondChan = WIFI_SECOND_CHAN_NONE;
     esp_wifi_set_channel(1, secondChan);
 
-    
-    // Get and store AP MAC
     uint8_t ap_mac[6];
     esp_wifi_get_mac(WIFI_IF_AP, ap_mac);
     snprintf(apMacStr, sizeof(apMacStr), "%02X:%02X:%02X:%02X:%02X:%02X",
@@ -71,14 +61,14 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int d
     snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
              mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
     
-    // Convert received data to string
+    // convert received data to string
     char dataStr[BUFFER_SIZE];
     memcpy(dataStr, data, data_len);
     dataStr[data_len] = '\0';
     
     Serial.printf("\nReceived from: %s\nData: %s\n", macStr, dataStr);
     
-    // Forward data over LoRa
+    // forward data over LoRa to top gateway
     if (lora_idle) {
         lora_idle = false;
         strncpy(txpacket, dataStr, BUFFER_SIZE);
@@ -91,7 +81,6 @@ void updateDisplay() {
     disp.clear();
     disp.drawString(0, 0, "Gateway AP MAC:");
     
-    // Split MAC address into two lines for better readability
     String mac = String(apMacStr);
     String firstHalf = mac.substring(0, 8);
     String secondHalf = mac.substring(9);
@@ -104,14 +93,10 @@ void updateDisplay() {
 void setup() {
     Serial.begin(115200);
     
-    // Initialize OLED
     disp.init();
     disp.setFont(ArialMT_Plain_10);
     
-    // Initialize WiFi and ESP-NOW
     initWiFi();
-    
-    // Initialize ESP-NOW
     if (esp_now_init() != ESP_OK) {
         Serial.println("Error initializing ESP-NOW");
         return;
@@ -119,10 +104,9 @@ void setup() {
     
     esp_now_register_recv_cb(OnDataRecv);
     
-    // Display initial information
     updateDisplay();
     
-    // Initialize LoRa
+    // initialize LoRa
     Mcu.begin(HELTEC_BOARD, SLOW_CLK_TPYE);
     
     RadioEvents.TxDone = OnTxDone;
@@ -138,9 +122,8 @@ void setup() {
 
 void loop() {
     Radio.IrqProcess();
-    // Refresh display periodically to ensure MAC is always visible
     updateDisplay();
-    delay(100);  // Small delay to prevent too frequent updates
+    delay(100); 
 }
 
 void OnTxDone(void) {

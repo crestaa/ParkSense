@@ -181,7 +181,6 @@
           maxZoom: 19,
         }).addTo(map);
 
-        // Initialize empty heat layers
         tempHeatLayer = L.heatLayer([], {
           radius: 50,
           blur: 30,
@@ -217,7 +216,6 @@
       }
 
       function updateHeatmap(data) {
-        // Process data for heatmap
         const tempData = data.map((sensor) => [
           sensor.latitude,
           sensor.longitude,
@@ -230,14 +228,11 @@
           normalizeHumidity(sensor.humidity),
         ]);
 
-        // Update layers
         tempHeatLayer.setLatLngs(tempData);
         humidHeatLayer.setLatLngs(humidData);
 
-        // Show current layer
         toggleLayer(currentMode);
 
-        // Fit map to show all sensors
         if (data.length > 0) {
           const bounds = L.latLngBounds(
             data.map((s) => [s.latitude, s.longitude])
@@ -247,25 +242,19 @@
       }
 
       function normalizeTemperature(temp) {
-        // Normalize temperature to 0-1 range
-        // Assuming temperature range of -10 to 40 degrees
         return (temp + 10) / 50;
       }
 
       function normalizeHumidity(humid) {
-        // Normalize humidity to 0-1 range
-        // Humidity is already 0-100
         return humid / 100;
       }
 
       function toggleLayer(mode) {
         currentMode = mode;
 
-        // Remove both layers
         map.removeLayer(tempHeatLayer);
         map.removeLayer(humidHeatLayer);
 
-        // Add selected layer
         if (mode === "temp") {
           tempHeatLayer.addTo(map);
           document.getElementById("tempButton").classList.add("active");
@@ -286,17 +275,17 @@
           existingLegend.remove();
         }
 
-        // Define gradient based on type
+        // define gradient based on type
         const gradient = isTemperature
           ? "linear-gradient(to right, #8b008b, #0000ff, #00ff00, #ffff00, #ff4500, #ff0000)"
           : "linear-gradient(to right, #ff0000, #ff4500, #00ff00, #87ceeb, #00008b)";
 
-        // Define labels based on type
+        // define labels based on type
         const labels = isTemperature
           ? ["< -10°C", "-5°C", "0°C", "20°C", "30°C", "> 40°C"]
           : ["0%", "25%", "50%", "75%", "100%"];
 
-        // Create legend HTML
+        // create legend
         const legend = document.createElement("div");
         legend.className = "legend";
         legend.innerHTML = `
@@ -320,7 +309,7 @@
           const measurements = await measurementsResponse.json();
           const sensors = await sensorsResponse.json();
 
-          // Combine sensor locations with their measurements
+          // combine sensor locations with their measurements
           const data = measurements.map((measurement) => {
             const sensor = sensors.find(
               (s) => s.sensor_id === measurement.sensor_id
@@ -338,11 +327,10 @@
         }
       }
 
-      // Initialize
       initMap();
       fetchData();
 
-      // Refresh every 30 seconds
+      // refresh every 30 seconds
       setInterval(fetchData, 30000);
     </script>
   </body>

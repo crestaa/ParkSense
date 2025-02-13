@@ -309,7 +309,6 @@
       </div>
     </div>
 
-    <!-- Modal -->
     <div class="modal" id="addSensorModal">
       <div class="modal-content">
         <div class="modal-header">
@@ -362,7 +361,7 @@
       let markers = {};
       let sensorsData = [];
 
-      // Initialize map
+      // initialize map
       function initMap() {
         map = L.map("map").setView([0, 0], 2);
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -403,11 +402,11 @@
           sensorsData = data;
           displaySensors(data);
 
-          // Clear existing markers
+          // clear existing markers
           Object.values(markers).forEach((marker) => map.removeLayer(marker));
           markers = {};
 
-          // Add markers for all sensors
+          // add markers for all sensors
           data.forEach(addMarker);
           updateMapView();
         } catch (error) {
@@ -518,32 +517,30 @@
         }
       }
 
-      // Initialize map and set up all event handlers
+      // initialize map
       function initMap() {
         map = L.map("map", {
-          maxZoom: 22, // Allow higher zoom level
+          maxZoom: 22,
         }).setView([0, 0], 2);
 
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution: "© OpenStreetMap contributors",
-          maxZoom: 22, // Enable maximum zoom from OSM
+          maxZoom: 22,
         }).addTo(map);
 
-        // Add click handler for the map
+        // add click handler for the map
         map.on("click", function (e) {
           const lat = e.latlng.lat;
           const lng = e.latlng.lng;
 
-          // Fill the form with the clicked coordinates
+          // fill the form with the clicked coordinates
           document.getElementById("latitude").value = lat.toFixed(6);
           document.getElementById("longitude").value = lng.toFixed(6);
 
-          // Open the modal
           openModal();
         });
       }
 
-      // Add click handler for table rows to center map on sensor
       function setupTableHandlers() {
         document
           .getElementById("sensors-table")
@@ -554,13 +551,13 @@
             const sensorId = row.querySelector(".sensor-id")?.textContent;
             if (sensorId && markers[sensorId]) {
               const marker = markers[sensorId];
-              map.setView(marker.getLatLng(), 18); // Increased zoom level when clicking on a sensor
+              map.setView(marker.getLatLng(), 18);
               marker.openPopup();
             }
           });
       }
 
-      // Update map view to show all sensors
+      // update map view to show all sensors
       function updateMapView() {
         if (sensorsData.length > 0) {
           const bounds = L.latLngBounds(
@@ -568,19 +565,16 @@
           );
           map.fitBounds(bounds, {
             padding: [50, 50],
-            maxZoom: 18, // Set maximum zoom when fitting bounds
+            maxZoom: 18,
           });
         }
       }
 
-      // Start the application
       function init() {
         initMap();
         setupTableHandlers();
         fetchSensors();
       }
-
-      // Initialize everything when the page loads
       document.addEventListener("DOMContentLoaded", init);
     </script>
   </body>

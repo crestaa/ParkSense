@@ -252,17 +252,15 @@
             ? slot.distance <= 30
             : false;
 
-        // Remove existing marker if it exists
         if (markers[slot.sensor_id]) {
           map.removeLayer(markers[slot.sensor_id]);
         }
 
-        // Create new marker
         const marker = L.marker([coordinates.latitude, coordinates.longitude], {
           icon: createCustomMarker(isOccupied),
         });
 
-        // Format values with null checking
+        // format values and null
         const distance =
           slot.distance !== null && slot.distance !== undefined
             ? `${slot.distance.toFixed(1)} cm`
@@ -276,7 +274,6 @@
             ? `${slot.humidity.toFixed(1)}%`
             : "N/A";
 
-        // Add popup with info
         marker.bindPopup(`
             <strong>${slot.sensor_id || "Unknown"}</strong><br>
             Status: ${isOccupied ? "Occupied" : "Available"}<br>
@@ -312,7 +309,7 @@
         const statusClass = isOccupied ? "status-occupied" : "status-available";
         const statusText = isOccupied ? "Occupied" : "Available";
 
-        // Format values with null checking
+        // format values and null
         const distance =
           slot.distance !== null && slot.distance !== undefined
             ? `${slot.distance.toFixed(1)} cm`
@@ -372,7 +369,6 @@
           const measurements = await measurementsResponse.json();
           const sensors = await sensorsResponse.json();
 
-          // Create a map of sensor coordinates
           const sensorCoordinates = {};
           sensors.forEach((sensor) => {
             sensorCoordinates[sensor.sensor_id] = {
@@ -392,7 +388,7 @@
             return;
           }
 
-          // Update markers and grid
+          // update markers
           grid.innerHTML = measurements
             .map((slot) => {
               const coordinates = sensorCoordinates[slot.sensor_id];
@@ -404,7 +400,6 @@
             })
             .join("");
 
-          // Update map view to show all markers
           updateMapView();
         } catch (error) {
           console.error("Error fetching data:", error);
@@ -416,13 +411,10 @@
         }
       }
 
-      // Initialize map
       initMap();
-
-      // Initial load
       fetchLatestMeasurements();
 
-      // Refresh every 30 seconds
+      // refresh every 30 seconds
       setInterval(fetchLatestMeasurements, 30000);
     </script>
   </body>

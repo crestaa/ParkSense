@@ -10,12 +10,12 @@
 #define LORA_BANDWIDTH 0 // [0: 125 kHz, 1: 250 kHz, 2: 500 kHz, 3: Reserved]
 #define LORA_SPREADING_FACTOR 12 // [SF7..SF12]
 #define LORA_CODINGRATE 4 // [1: 4/5, 2: 4/6, 3: 4/7, 4: 4/8]
-#define LORA_PREAMBLE_LENGTH 8 // Same for Tx and Rx
-#define LORA_SYMBOL_TIMEOUT 0 // Symbols
+#define LORA_PREAMBLE_LENGTH 8 // SAME FOR TX AND RX
+#define LORA_SYMBOL_TIMEOUT 0 
 #define LORA_FIX_LENGTH_PAYLOAD_ON false
 #define LORA_IQ_INVERSION_ON false
 #define RX_TIMEOUT_VALUE 3000
-#define BUFFER_SIZE 128 // Define the payload size here
+#define BUFFER_SIZE 128
 
 // OLED Display
 SSD1306Wire disp(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
@@ -26,7 +26,7 @@ PubSubClient client(espClient);
 
 char rxpacket[BUFFER_SIZE];
 static RadioEvents_t RadioEvents;
-String clientId; // To store MAC address
+String clientId; // to store MAC address
 
 void setupWiFi() {
   delay(10);
@@ -41,16 +41,14 @@ void setupWiFi() {
     Serial.print(".");
   }
 
-  // Get MAC address
   clientId = WiFi.macAddress();
-  clientId.replace(":", ""); // Remove colons from MAC address
+  clientId.replace(":", "");
 
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("IP address: " + WiFi.localIP().toString());
   Serial.println("MAC address: " + clientId);
 
-  // Display WiFi status on OLED
   disp.clear();
   disp.drawString(0, 0, "WiFi Connected");
   disp.drawString(0, 15, "IP: " + WiFi.localIP().toString());
@@ -86,7 +84,6 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
   
   Serial.printf("\r\nReceived packet \"%s\" with RSSI %d , SNR %d\r\n", rxpacket, rssi, snr);
 
-  // Display received data on OLED
   disp.clear();
   disp.drawString(0, 0, "Received Data:");
   disp.drawString(0, 15, String(rxpacket));
@@ -94,21 +91,17 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
   disp.drawString(0, 45, "SNR: " + String(snr) + " dB");
   disp.display();
 
-  // Publish to MQTT
+  // publish to MQTT broker
   publishSensorData(rxpacket);
 }
 
 void setup() {
   Serial.begin(115200);
-  
-  // Initialize OLED display
-  disp.init();
+    disp.init();
   disp.setFont(ArialMT_Plain_10);
   
-  // Setup WiFi
+  // setup WiFi & MQTT
   setupWiFi();
-  
-  // Setup MQTT
   client.setServer(MQTT_BROKER, MQTT_PORT);
   reconnectMQTT();
   
@@ -123,7 +116,6 @@ void setup() {
                     LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
                     0, true, 0, 0, LORA_IQ_INVERSION_ON, true);
 
-  // Display initial message
   disp.clear();
   disp.drawString(0, 0, "LoRa Receiver");
   disp.drawString(0, 20, "Listening...");
@@ -133,8 +125,8 @@ void setup() {
 }
 
 void loop() {
-  Radio.Rx(0); // Continuous receive mode
+  Radio.Rx(0); // continuous receive mode
   delay(100);
   Radio.IrqProcess();
-  client.loop(); // Handle MQTT loop
+  client.loop();
 }

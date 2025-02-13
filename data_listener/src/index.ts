@@ -1,7 +1,6 @@
 import * as mqtt from 'mqtt';
 import { Client } from 'pg';
 
-// Database configuration
 const dbConfig = {
   host: process.env.POSTGRES_HOST || 'database',
   database: process.env.POSTGRES_DB || 'iot_data',
@@ -9,7 +8,6 @@ const dbConfig = {
   password: process.env.POSTGRES_PASSWORD
 };
 
-// MQTT configuration
 const mqttConfig = {
   host: process.env.MQTT_BROKER?.split(':')[0] || 'mqtt-broker',
   port: parseInt(process.env.MQTT_BROKER?.split(':')[1] || '1883'),
@@ -22,14 +20,14 @@ interface SensorData {
   h: number;    // humidity
   d: number;    // distance
   m: string;    // sensor_id (MAC address)
-  b: number;    // boot_count (not stored)
+  b: number;    // boot_count (not used)
 }
 
 async function setupDatabase() {
   const client = new Client(dbConfig);
   await client.connect();
   
-  // Load and execute initialization script
+  // initialization script
   const initScript = `
     CREATE TABLE IF NOT EXISTS measurements (
         id SERIAL PRIMARY KEY,
@@ -55,11 +53,9 @@ async function setupDatabase() {
 async function main() {
   console.log('Starting data listener service...');
   
-  // Setup database
   const dbClient = await setupDatabase();
   console.log('Database connected and initialized');
   
-  // Connect to MQTT broker
   const mqttClient = mqtt.connect({
     host: mqttConfig.host,
     port: mqttConfig.port,
@@ -86,14 +82,13 @@ async function main() {
         throw new Error('Missing sensor_id (m) in message payload');
       }
       
-      // Insert data into measurements table
       const query = `
         INSERT INTO measurements 
         (sensor_id, temperature, humidity, distance) 
         VALUES ($1, $2, $3, $4)
       `;
       
-      // Explicitly check each field and convert undefined to null
+      // convert undefined to null
       const params = [
         data.m ?? null,                                        // sensor_id
         typeof data.t !== 'undefined' ? data.t : null,        // temperature
@@ -109,7 +104,6 @@ async function main() {
     }
   });
   
-  // Error handling
   mqttClient.on('error', (error) => {
     console.error('MQTT error:', error);
   });
